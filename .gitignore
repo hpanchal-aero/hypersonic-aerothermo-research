@@ -1,0 +1,52 @@
+# OpenFOAM run artifacts
+*/processor*/
+*/postProcessing/
+*/*.foam
+*/log.*
+*/constant/polyMesh/
+*/dynamicCode/
+*.bak
+
+# OpenFOAM numeric time-step directories (regenerable solver output)
+openfoam/**/[0-9]*/
+openfoam/**/[0-9]*.[0-9]*/
+openfoam/**/[0-9]*e-[0-9]*/
+
+# CalculiX
+*.frd
+*.dat
+*.sta
+*.cvg
+*.12d
+*.eig
+*.mtx
+*.rin
+*.rout
+
+# Gmsh
+*.msh
+*.msh~
+
+# Python
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+venv/
+.venv/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+*.swp
+*~
+
+# Large binary results (kept out of git; regenerate via scripts)
+*.vtu
+*.vtk
+*.vtp
+*.pvtu
+*.stl
+*.step
+*.stp
