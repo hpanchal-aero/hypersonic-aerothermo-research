@@ -299,3 +299,79 @@ the starting point, resolves the instability entirely.
 Shakedown A complete. Ready to proceed to Shakedown B (full M=7, coarser
 far-field mesh, Mach-ramp startup) to confirm the strategy generalizes before
 committing to the production mesh.
+
+---
+
+## 2026-09-24: Shakedown B Complete — Mach-Ramp Strategy Generalizes to Coarsened Far-Field
+
+### Objective
+
+Confirm the Mach-ramp startup strategy validated in Shakedown A (full near-wall
+resolution) also works with the coarsened far-field mesh intended to speed up
+iteration for the eventual production case.
+
+### Mesh
+
+Same near-body + buffer-ring geometry as Shakedown A, byte-identical (verified:
+max aspect ratio, min volume, max non-orthogonality, and the 283 severely
+non-orthogonal face count all identical to Shakedown A — confirms these live
+entirely in the unchanged collar). Far-field background field coarsened
+(SizeMin 4.5mm→9mm, SizeMax 40mm→80mm, DistMax unchanged at 0.4m), reducing
+total cells from 22,266 to 19,179. Average non-orthogonality (13.85°→14.68°)
+and max skewness (0.778→1.014) increased modestly, as expected for coarser
+unstructured cells, both remaining well within checkMesh OK bounds. Same
+single benign wedge-planarity failure as every prior stage.
+
+Far-field patch index mapping (outlet/farfield_outer/farfield_upstream)
+independently re-verified via the same BoundingBox diagnostic used in the
+original repository's Stage 2 and in Shakedown A — confirmed identical
+indices (outFarfield[6]/[7]/[8]) despite the different sizing field, since
+only Field[2] parameters changed, not point/curve/surface topology or
+extrusion order.
+
+### Result
+
+Using the identical Mach-ramp strategy validated in Shakedown A (linear U
+ramp M=5→7 over t=0 to 5e-8s, p/T held constant), the run survived past
+t=5.5e-7s at full M=7 severity — beyond the ramp's completion, beyond the
+historical crash zone, and beyond the old repository's best-ever M=7
+survival (~4.5e-7s) — with the same clean, converging residual pattern seen
+in Shakedown A. Run stopped manually (Ctrl+C) at t=5.5e-7s, not due to any
+sign of instability.
+
+A wall-clock difference was observed: at matched physical time (~5.33e-7s),
+this run's ExecutionTime (~21s) was substantially lower than Shakedown A's
+ramp run at the equivalent point (~138s) — larger than the ~14% cell-count
+reduction alone would explain. No confirmed cause identified (possible
+system load variation between sessions); noted factually, not claimed as a
+verified effect of far-field coarsening.
+
+The Uz residual anomaly (elevated, slower-decaying than Ux/Uy/e) was
+observed again, now in 5 consecutive stable runs (M=3, M=5, M=5.125, the
+M=5→7 ramp, and this coarse-far-field M=7 ramp) — still not investigated.
+
+### Conclusion
+
+The Mach-ramp startup strategy is validated across both near-wall resolution
+(Shakedown A) and far-field mesh density (Shakedown B). Both required
+shakedown stages are complete. Ready to proceed to the production mesh
+(full near-wall resolution + fine far-field, matching Shakedown A's mesh
+exactly) using this validated startup strategy.
+
+### Open items carried forward (unchanged)
+
+- Uz residual anomaly: still unexplained, now observed in 5 stable runs.
+  Should be investigated before or during production runs, since it could
+  matter for later QoI accuracy even though it hasn't blocked convergence.
+- The unexplained wall-clock discrepancy between Shakedown A and B (noted
+  above) — not investigated, low priority.
+- Mach-ramp duration (5e-8s) still not systematically tuned — validated at
+  two mesh configurations on the first attempt, but shorter/longer durations
+  were never tested.
+
+### Status
+
+Shakedown A and B both complete. Next: build the production mesh (full
+near-wall resolution, fine far-field — reusing Shakedown A's exact mesh) and
+begin the standard verification (grid convergence) → validation (Fay-Riddell,
+Billig) → parametric sweep sequence from PROJECT_DEFINITION.md.
