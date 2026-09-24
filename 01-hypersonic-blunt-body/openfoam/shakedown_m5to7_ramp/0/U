@@ -1,0 +1,78 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+  =========                 |
+  \\      /  F ield         | OpenFOAM
+   \\    /   O peration     |
+    \\  /    A nd           |
+     \\/     M anipulation  |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       volVectorField;
+    object      U;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+// Mach ramp: U starts at the M=5 value (proven stable, well clear of the
+// 5.125-5.25 crash threshold found via bisection) and ramps linearly to
+// the M=7 production value, then holds. T and p are NOT ramped: with
+// altitude (T_inf, p_inf) fixed, Mach number depends only on U (a_inf is
+// constant), so they are identical at every point along this path.
+// Ramp duration (0 to 5e-8s) is a first attempt, to be tuned based on
+// whether this run survives.
+
+dimensions      [0 1 -1 0 0 0 0];
+
+internalField   uniform (1508.4 0 0);
+
+boundaryField
+{
+    farfield_upstream
+    {
+        type            uniformFixedValue;
+        uniformValue    table
+        (
+            (0        (1508.4  0 0))
+            (5e-08    (2111.72 0 0))
+        );
+    }
+    farfield_outer
+    {
+        type            uniformFixedValue;
+        uniformValue    table
+        (
+            (0        (1508.4  0 0))
+            (5e-08    (2111.72 0 0))
+        );
+    }
+    outlet
+    {
+        type            zeroGradient;
+    }
+    wall_nose
+    {
+        type            noSlip;
+    }
+    wall_cone
+    {
+        type            noSlip;
+    }
+    wall_fillet
+    {
+        type            noSlip;
+    }
+    wall_base
+    {
+        type            noSlip;
+    }
+    frontWedge
+    {
+        type            wedge;
+    }
+    backWedge
+    {
+        type            wedge;
+    }
+}
+
+// ************************************************************************* //
