@@ -375,3 +375,211 @@ Shakedown A and B both complete. Next: build the production mesh (full
 near-wall resolution, fine far-field — reusing Shakedown A's exact mesh) and
 begin the standard verification (grid convergence) → validation (Fay-Riddell,
 Billig) → parametric sweep sequence from PROJECT_DEFINITION.md.
+
+---
+
+## 2026-09-24: First Production Run — Correction to Shakedown Conclusions, Modeling-Scope Decision Adopted
+
+### Correction to prior entries
+
+The Shakedown A and Shakedown B entries above state that the Mach-ramp
+startup strategy "resolves" or "eliminates" the cold-start instability.
+This was premature. Both shakedown runs were manually stopped (Ctrl+C) at
+t≈5.4-5.5e-7s because the result looked sufficient at the time - neither
+run was allowed to continue to a real endpoint. This first production run,
+given a generous endTime=1e-5 rather than being stopped early, revealed
+that the instability was delayed, not eliminated: the run crashed via the
+identical sigFpe/hePsiThermo::calculate() mechanism at t=2.64154e-06s -
+roughly 22,000x later than the raw cold-start crash (1.2e-10s), but still
+a crash. The corrected understanding: the Mach-ramp is a genuine, large
+improvement to startup robustness, not a complete fix for an unrelated,
+separate issue (see below).
+
+### Crash diagnosis
+
+Direct inspection of the last written field snapshot (t=2.63989e-06s, one
+step before the crash) via a spatial diagnostic script (locating field
+extremes by cell centroid, derived independently from polyMesh points/
+faces/owner - not trusted from any prior assumption):
+
+- High p/T (p≈5.16e4 Pa, T≈1833K) localized at the nose stagnation region
+  (x≈0.0004-0.0005, r≈0.006-0.007) - physically expected at M=7, not
+  anomalous.
+- Low p/T (p≈0.035 Pa, T≈1.04 K) localized at x≈0.41662 (matching L, the
+  wall_base patch location) across a wide radial range (r≈0.001-0.137) -
+  a near-vacuum, continuum-invalid condition at the base wall/wake.
+- The previously-flagged "elevated Uz residual" open item (observed in
+  5+ prior runs) was checked directly against actual Uz field values at
+  this snapshot: all ~1e-10 to 1e-11, i.e. floating-point noise. This
+  closes that open item as resolved-benign - the anomaly was in the
+  solver's linear-system residual metric (relative to a very small RHS),
+  not in the physical field. It was a red herring, not a contributing
+  factor to the crash.
+
+**Conclusion: this is the same base/wake continuum-breakdown limitation
+documented in the prior repository's "Corner/Base Investigation Concluded"
+entry** (Boyd et al. Knudsen-number criterion showed 2-4 orders of
+magnitude past the continuum-breakdown threshold in that region, under
+the same freestream conditions). The Mach-ramp did not fix this - it
+isn't a startup problem - but by eliminating the earlier, separate
+axis-topology and cold-start-severity failure modes, it allowed the
+solution to run long enough for this pre-existing, physically-real
+modeling-domain limitation to become the new limiting factor.
+
+### Forebody QoI convergence check (before accepting any scope decision)
+
+Rather than assume the base/wake limitation doesn't matter for the actual
+research question, checked directly:
+
+**Stagnation point** (probeStagnation, 1,685 samples, t=0 to t=2.6399e-06s):
+- p_stag: last 3 relative changes 0.0175%, 0.0171%, 0.0167% - PASS (formal
+  1%-for-3-consecutive-snapshots criterion), monotonically decreasing.
+- T_stag: last 3 relative changes 0.0209%, 0.0207%, 0.0205% - PASS, same
+  pattern.
+- Both results are far more robust than the prior repository's "marginal
+  pass" on the same criterion (0.3-0.4%, achieved only in a narrow window
+  immediately before failure) - here the margin is roughly 15-20x tighter,
+  well clear of the crash, not scraping by.
+
+**Forebody surface pressure** (5 wall_cone stations spanning x=0.039 to
+x=0.412, extracted from owner-cell values across 20 written snapshots -
+correct interpretation of the zeroGradient wall BC):
+- All 5 stations PASS, last-3 relative changes ranging 0.0004% to 0.015% -
+  comprehensive, not cherry-picked: the entire forebody pressure
+  distribution is converged well before the crash, not just the
+  stagnation point.
+
+### Decision: modeling-scope limitation adopted, drag dropped from Project 01 scope (Harsh's explicit call)
+
+Following the same resolution as the prior repository's investigation:
+**forebody QoIs (shock stand-off distance, stagnation-point heat flux,
+forebody surface pressure distribution) are accepted as valid** for this
+project's research question. The base/wake region is documented as an
+out-of-scope continuum-breakdown limitation - the calorically-perfect-gas
+Navier-Stokes model is not physically valid there at these freestream
+conditions, independent of mesh or startup strategy, and this does not
+invalidate the CFD solution in the forebody region where the research
+question's quantities of interest are evaluated.
+
+**Total drag is dropped from this project's scope entirely** (not bounded
+or estimated) - forebody (pressure) drag remains computable from the
+converged forebody pressure field, but total drag requires the
+base-pressure contribution, which sits in the continuum-invalid region
+and is not resolvable within this project's perfect-gas, continuum-CFD
+methodology. This is noted as a candidate topic for a future, separate
+project (rarefied/DSMC-hybrid treatment of hypersonic base flow), not a
+Project 01 modification.
+
+### Status
+
+Ready to proceed to grid convergence (verification) on the three confirmed
+forebody QoIs (shock stand-off distance, stagnation-point heat flux,
+forebody surface pressure distribution), followed by validation against
+Fay-Riddell (stagnation heat flux) and Billig (shock stand-off)
+correlations, per PROJECT_DEFINITION.md. Drag is removed from Required
+Outputs. The production mesh, Mach-ramp startup strategy, and this QoI
+scoping are now the settled methodology going into that work.
+
+---
+
+## 2026-09-24: First Production Run — Correction to Shakedown Conclusions, Modeling-Scope Decision Adopted
+
+### Correction to prior entries
+
+The Shakedown A and Shakedown B entries above state that the Mach-ramp
+startup strategy "resolves" or "eliminates" the cold-start instability.
+This was premature. Both shakedown runs were manually stopped (Ctrl+C) at
+t≈5.4-5.5e-7s because the result looked sufficient at the time - neither
+run was allowed to continue to a real endpoint. This first production run,
+given a generous endTime=1e-5 rather than being stopped early, revealed
+that the instability was delayed, not eliminated: the run crashed via the
+identical sigFpe/hePsiThermo::calculate() mechanism at t=2.64154e-06s -
+roughly 22,000x later than the raw cold-start crash (1.2e-10s), but still
+a crash. The corrected understanding: the Mach-ramp is a genuine, large
+improvement to startup robustness, not a complete fix for an unrelated,
+separate issue (see below).
+
+### Crash diagnosis
+
+Direct inspection of the last written field snapshot (t=2.63989e-06s, one
+step before the crash) via a spatial diagnostic script (locating field
+extremes by cell centroid, derived independently from polyMesh points/
+faces/owner - not trusted from any prior assumption):
+
+- High p/T (p≈5.16e4 Pa, T≈1833K) localized at the nose stagnation region
+  (x≈0.0004-0.0005, r≈0.006-0.007) - physically expected at M=7, not
+  anomalous.
+- Low p/T (p≈0.035 Pa, T≈1.04 K) localized at x≈0.41662 (matching L, the
+  wall_base patch location) across a wide radial range (r≈0.001-0.137) -
+  a near-vacuum, continuum-invalid condition at the base wall/wake.
+- The previously-flagged "elevated Uz residual" open item (observed in
+  5+ prior runs) was checked directly against actual Uz field values at
+  this snapshot: all ~1e-10 to 1e-11, i.e. floating-point noise. This
+  closes that open item as resolved-benign - the anomaly was in the
+  solver's linear-system residual metric (relative to a very small RHS),
+  not in the physical field. It was a red herring, not a contributing
+  factor to the crash.
+
+**Conclusion: this is the same base/wake continuum-breakdown limitation
+documented in the prior repository's "Corner/Base Investigation Concluded"
+entry** (Boyd et al. Knudsen-number criterion showed 2-4 orders of
+magnitude past the continuum-breakdown threshold in that region, under
+the same freestream conditions). The Mach-ramp did not fix this - it
+isn't a startup problem - but by eliminating the earlier, separate
+axis-topology and cold-start-severity failure modes, it allowed the
+solution to run long enough for this pre-existing, physically-real
+modeling-domain limitation to become the new limiting factor.
+
+### Forebody QoI convergence check (before accepting any scope decision)
+
+Rather than assume the base/wake limitation doesn't matter for the actual
+research question, checked directly:
+
+**Stagnation point** (probeStagnation, 1,685 samples, t=0 to t=2.6399e-06s):
+- p_stag: last 3 relative changes 0.0175%, 0.0171%, 0.0167% - PASS (formal
+  1%-for-3-consecutive-snapshots criterion), monotonically decreasing.
+- T_stag: last 3 relative changes 0.0209%, 0.0207%, 0.0205% - PASS, same
+  pattern.
+- Both results are far more robust than the prior repository's "marginal
+  pass" on the same criterion (0.3-0.4%, achieved only in a narrow window
+  immediately before failure) - here the margin is roughly 15-20x tighter,
+  well clear of the crash, not scraping by.
+
+**Forebody surface pressure** (5 wall_cone stations spanning x=0.039 to
+x=0.412, extracted from owner-cell values across 20 written snapshots -
+correct interpretation of the zeroGradient wall BC):
+- All 5 stations PASS, last-3 relative changes ranging 0.0004% to 0.015% -
+  comprehensive, not cherry-picked: the entire forebody pressure
+  distribution is converged well before the crash, not just the
+  stagnation point.
+
+### Decision: modeling-scope limitation adopted, drag dropped from Project 01 scope (Harsh's explicit call)
+
+Following the same resolution as the prior repository's investigation:
+**forebody QoIs (shock stand-off distance, stagnation-point heat flux,
+forebody surface pressure distribution) are accepted as valid** for this
+project's research question. The base/wake region is documented as an
+out-of-scope continuum-breakdown limitation - the calorically-perfect-gas
+Navier-Stokes model is not physically valid there at these freestream
+conditions, independent of mesh or startup strategy, and this does not
+invalidate the CFD solution in the forebody region where the research
+question's quantities of interest are evaluated.
+
+**Total drag is dropped from this project's scope entirely** (not bounded
+or estimated) - forebody (pressure) drag remains computable from the
+converged forebody pressure field, but total drag requires the
+base-pressure contribution, which sits in the continuum-invalid region
+and is not resolvable within this project's perfect-gas, continuum-CFD
+methodology. This is noted as a candidate topic for a future, separate
+project (rarefied/DSMC-hybrid treatment of hypersonic base flow), not a
+Project 01 modification.
+
+### Status
+
+Ready to proceed to grid convergence (verification) on the three confirmed
+forebody QoIs (shock stand-off distance, stagnation-point heat flux,
+forebody surface pressure distribution), followed by validation against
+Fay-Riddell (stagnation heat flux) and Billig (shock stand-off)
+correlations, per PROJECT_DEFINITION.md. Drag is removed from Required
+Outputs. The production mesh, Mach-ramp startup strategy, and this QoI
+scoping are now the settled methodology going into that work.

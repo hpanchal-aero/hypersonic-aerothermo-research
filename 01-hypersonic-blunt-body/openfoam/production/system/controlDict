@@ -1,0 +1,65 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+  =========                 |
+  \\      /  F ield         | OpenFOAM
+   \\    /   O peration     |
+    \\  /    A nd           |
+     \\/     M anipulation  |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    object      controlDict;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+// Production case: full M=7, full near-wall + fine far-field resolution,
+// validated Mach-ramp startup (M=5->7 over 5e-8s, see 0/U). endTime left
+// generous - this run is intended to actually reach temporal independence
+// of stagnation QoIs (q_stag, p_stag, forebody pressure), not to be
+// stopped early as a shakedown pass/fail check.
+
+application     rhoCentralFoam;
+
+startFrom       latestTime;
+startTime       0;
+
+stopAt          endTime;
+endTime         1e-5;
+
+deltaT          1e-10;
+
+writeControl    timeStep;
+writeInterval   2;
+
+purgeWrite      20;
+
+writeFormat     ascii;
+writePrecision  6;
+writeCompression off;
+
+timeFormat      general;
+timePrecision   6;
+
+runTimeModifiable true;
+
+adjustTimeStep  yes;
+maxCo           0.5;
+maxDeltaT       1e-6;
+
+functions
+{
+    probeStagnation
+    {
+        type            probes;
+        libs            ("libsampling.so");
+        writeControl    timeStep;
+        writeInterval   1;
+        fields          (T p U);
+        probeLocations
+        (
+            (0 0 0)
+        );
+    }
+}
+// ************************************************************************* //

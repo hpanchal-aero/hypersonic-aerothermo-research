@@ -1,0 +1,75 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+  =========                 |
+  \\      /  F ield         | OpenFOAM
+   \\    /   O peration     |
+    \\  /    A nd           |
+     \\/     M anipulation  |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       volVectorField;
+    object      U;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+// PRODUCTION run: validated Mach-ramp startup (M=5->7 over 5e-8s), identical
+// to the strategy confirmed in Shakedown A and Shakedown B. p and T are NOT
+// ramped (Mach depends only on U at fixed altitude - see Shakedown A
+// rationale in DEVELOPMENT_LOG.md).
+
+dimensions      [0 1 -1 0 0 0 0];
+
+internalField   uniform (1508.4 0 0);
+
+boundaryField
+{
+    farfield_upstream
+    {
+        type            uniformFixedValue;
+        uniformValue    table
+        (
+            (0        (1508.4  0 0))
+            (5e-08    (2111.72 0 0))
+        );
+    }
+    farfield_outer
+    {
+        type            uniformFixedValue;
+        uniformValue    table
+        (
+            (0        (1508.4  0 0))
+            (5e-08    (2111.72 0 0))
+        );
+    }
+    outlet
+    {
+        type            zeroGradient;
+    }
+    wall_nose
+    {
+        type            noSlip;
+    }
+    wall_cone
+    {
+        type            noSlip;
+    }
+    wall_fillet
+    {
+        type            noSlip;
+    }
+    wall_base
+    {
+        type            noSlip;
+    }
+    frontWedge
+    {
+        type            wedge;
+    }
+    backWedge
+    {
+        type            wedge;
+    }
+}
+
+// ************************************************************************* //

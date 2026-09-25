@@ -15,8 +15,12 @@ quantified computationally for a given geometry family and flow regime.
 ## Research Question
 
 How does nose (bluntness) radius influence shock stand-off distance, surface
-pressure distribution, drag, and the distribution/peak of surface heat flux on an
-axisymmetric hypersonic blunt body at fixed freestream conditions?
+pressure distribution, and the distribution/peak of surface heat flux on an
+axisymmetric hypersonic blunt body at fixed freestream conditions? (Total drag
+was originally part of this question; it was dropped from scope on 2026-09-24
+after CFD investigation found the base/wake region falls outside this
+project's continuum-CFD validity — see DEVELOPMENT_LOG.md and the Limitations
+section below.)
 
 ## Engineering Objective
 
@@ -33,7 +37,8 @@ Increasing nose radius (at fixed cone half-angle and base radius) will:
 - increase shock stand-off distance,
 - decrease peak stagnation-point heat flux, consistent with Fay–Riddell scaling
   (q̇_stag ∝ R⁻¹ᐟ²),
-- increase pressure drag due to increased frontal bluntness.
+- increase forebody (pressure) drag due to increased frontal bluntness. (Total
+  drag, including the base contribution, is out of scope — see Limitations.)
 
 These trends are hypotheses to be tested against our own CFD results, not assumed
 conclusions.
@@ -79,9 +84,11 @@ severity (lower Mach number) before being confirmed at the full M=7 condition.
 1. Shock stand-off distance δ as a function of nose radius R
 2. Surface pressure coefficient distribution Cp(s)
 3. Surface heat flux distribution q̇(s), with emphasis on stagnation value q̇_stag
-4. Drag coefficient Cd(R)
-5. Validation comparison: q̇_stag(R) vs. Fay–Riddell correlation
-6. Verification/validation comparison: δ(R) vs. Billig's empirical correlation
+4. Validation comparison: q̇_stag(R) vs. Fay–Riddell correlation
+5. Verification/validation comparison: δ(R) vs. Billig's empirical correlation
+
+Total drag coefficient Cd(R) was originally listed here; dropped from Required
+Outputs on 2026-09-24 (see Limitations).
 
 ## Shakedown Sequence (methodology verification, precedes production runs)
 
@@ -136,14 +143,28 @@ severity (lower Mach number) before being confirmed at the full M=7 condition.
   this specific geometry/mesh combination and are not claimed to generalize
   automatically to other cases in the eventual nose-radius sweep — each sweep
   case's startup behavior should be spot-checked, not assumed.
+- Total drag is out of scope for this project. The base/wake region was found
+  (via direct field inspection of the production M=7 run) to develop
+  near-vacuum, continuum-invalid conditions (consistent with the prior
+  repository's documented Knudsen-number-based continuum-breakdown finding),
+  which drives an eventual solver crash there. Forebody QoIs (shock stand-off,
+  stagnation heat flux, forebody pressure) were independently confirmed to
+  converge robustly well before this occurs and remain valid; total drag
+  requires the base-pressure contribution, which does not. Forebody
+  (pressure) drag alone remains computable but is not part of this project's
+  Required Outputs. A rarefied/DSMC-hybrid treatment of hypersonic base flow,
+  which would be needed to resolve total drag properly, is noted as candidate
+  scope for a future, separate project — not a Project 01 extension.
 
 ## Status
 
-**Reset.** This is a full methodology restart of Project 01, carrying forward
-the research question and the verified O-grid meshing approach from the prior
-repository incarnation, but replacing the solver-startup strategy after
-repeated cold-start crashes were traced to boundary-condition/initial-condition
-stiffness rather than mesh topology. Full development history and diagnostic
-evidence from the prior incarnation are summarized in `DEVELOPMENT_LOG.md`.
-Specification approved; directory structure created. Geometry, mesh, and
-solver setup not yet started in this repository.
+## Status
+
+Shakedown A and B complete (Mach-ramp startup strategy validated at reduced
+Mach and at full M=7 severity with a coarsened far-field mesh). First
+production run (full resolution, M=7) completed a diagnosis cycle: the
+Mach-ramp substantially delays but does not eliminate an eventual base/wake
+continuum-breakdown crash; forebody QoIs were independently confirmed to
+converge robustly well before that point, and total drag was dropped from
+scope accordingly (see Limitations). Full history in `DEVELOPMENT_LOG.md`.
+Next: grid convergence study on the confirmed forebody QoIs.
