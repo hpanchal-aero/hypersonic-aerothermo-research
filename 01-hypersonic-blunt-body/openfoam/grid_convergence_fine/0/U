@@ -1,0 +1,78 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+  =========                 |
+  \\      /  F ield         | OpenFOAM
+   \\    /   O peration     |
+    \\  /    A nd           |
+     \\/     M anipulation  |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       volVectorField;
+    object      U;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+// Grid convergence FINE mesh: Mach-ramp startup RE-TUNED for this mesh's
+// finer near-wall cell (h0=3.965e-6m). Bisection on this mesh found the
+// cold-start threshold at (M=4, M=4.25] - lower than production's
+// (M=5.125, M=5.25] - confirming smaller cells require a lower starting
+// Mach. Ramps from M=4 (confirmed stable, with margin) to M=7 over the
+// same 5e-8s duration validated on production/coarse. p and T are NOT
+// ramped (Mach depends only on U at fixed altitude).
+
+dimensions      [0 1 -1 0 0 0 0];
+
+internalField   uniform (1206.72 0 0);
+
+boundaryField
+{
+    farfield_upstream
+    {
+        type            uniformFixedValue;
+        uniformValue    table
+        (
+            (0        (1206.72 0 0))
+            (5e-08    (2111.72 0 0))
+        );
+    }
+    farfield_outer
+    {
+        type            uniformFixedValue;
+        uniformValue    table
+        (
+            (0        (1206.72 0 0))
+            (5e-08    (2111.72 0 0))
+        );
+    }
+    outlet
+    {
+        type            zeroGradient;
+    }
+    wall_nose
+    {
+        type            noSlip;
+    }
+    wall_cone
+    {
+        type            noSlip;
+    }
+    wall_fillet
+    {
+        type            noSlip;
+    }
+    wall_base
+    {
+        type            noSlip;
+    }
+    frontWedge
+    {
+        type            wedge;
+    }
+    backWedge
+    {
+        type            wedge;
+    }
+}
+
+// ************************************************************************* //

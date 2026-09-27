@@ -583,3 +583,163 @@ Fay-Riddell (stagnation heat flux) and Billig (shock stand-off)
 correlations, per PROJECT_DEFINITION.md. Drag is removed from Required
 Outputs. The production mesh, Mach-ramp startup strategy, and this QoI
 scoping are now the settled methodology going into that work.
+
+## 2026-09-27 — Grid Convergence Study: Ramp-Start-Mach Confound Discovered and Resolved
+
+### Objective
+
+Establish mesh independence for the three confirmed forebody QoIs (shock
+stand-off distance, stagnation-point heat flux/temperature, forebody
+surface pressure distribution) across three O-grid mesh densities
+(coarse, production=medium, fine), refined via wall-normal near-body
+resolution (h0) at a fixed sqrt(2) ratio, per PROJECT_DEFINITION.md's
+Verification Strategy.
+
+### Coarse and fine meshes built and cold-start-checked independently
+
+Per the established protocol (a Mach-ramp validated at one mesh density
+does not automatically transfer to another), each new density's cold-start
+tolerance was checked directly rather than assumed:
+
+- Coarse mesh: production's existing M=5->7 ramp worked without
+  modification (a coarser cell relaxes CFL severity). Crashed at
+  t=2.63249e-06s - essentially the same physical time as production's
+  t=2.64154e-06s crash, initially read as evidence the base/wake crash
+  timing is independent of near-wall mesh resolution (later shown to be
+  an artifact of both runs sharing the same M=5-start ramp, not a
+  resolution-independence result - see below).
+- Fine mesh: production's M=5-start ramp crashed it instantly
+  (t=1.2e-10s). A fresh Mach bisection performed directly on the fine
+  mesh found a new, lower cold-start threshold at (M=4, M=4.25] -
+  confirming a finer near-wall cell is more cold-start-severe, and that
+  ramp validation does not transfer across mesh densities. A new M=4->7
+  ramp (same 5e-8s duration as production's) was designed and this run
+  did NOT crash - it ran cleanly to the full endTime=1e-5s.
+
+### QoI comparison at matched absolute time revealed a large, initially
+### unexplained discrepancy
+
+Re-extracting the fine mesh's stagnation p/T from its probeStagnation
+history at the same absolute time as production/coarse's crash point
+(t~2.60-2.65e-6s, rather than the fine mesh's own t=1e-5s endpoint) still
+showed p_stag ~33,000 Pa on the fine mesh vs ~49,000 Pa on
+production/coarse - a 25-39% discrepancy across every QoI, far too large
+for genuine grid-refinement sensitivity across a modest sqrt(2) h0
+refinement. This disproved the initial working hypothesis (that the
+discrepancy was purely a "still relaxing, sampled at different post-ramp
+elapsed times" artifact) - matching absolute time barely moved the
+fine-mesh numbers.
+
+### Root cause isolated: ramp-start Mach, not grid density
+
+A controlled confound-isolation test was performed: the unchanged
+production mesh (byte-identical dictionaries confirmed via `diff -rq`
+against the original production case in constant/, system/, 0/p, 0/T -
+only 0/U's ramp-start values differed) was rerun with its ramp-start
+changed from M=5 to M=4, holding everything else fixed. This single
+change moved p_stag from ~49,000 Pa to ~32,950 Pa - landing within ~0.3%
+of the fine mesh's own M=4-start value (~33,063 Pa). **Confirmed: the
+ramp's starting Mach number, not mesh density, was the dominant driver of
+the original discrepancy.** The flow retains a strong, ramp-trajectory-
+dependent transient state for microseconds after reaching the M=7
+target - it does not depend only on "how long since the ramp ended."
+
+This also reframes the earlier coarse/production crash-timing
+"agreement" (both ~2.63-2.64e-6s): it demonstrated that *same ramp-start
+Mach produces similar crash timing*, not that crash timing is
+mesh-independent in general.
+
+### Resolution: all three densities standardized on an M=4-start ramp
+
+- Production and fine were already available at M=4-start (from the
+  confound test and the earlier bisection respectively).
+- Coarse's own M=4 cold-start tolerance was verified directly (not
+  assumed from its M=5 stability) - it ran cleanly to endTime=1e-5s with
+  no crash, consistent with production and fine.
+- Continuous forebody-pressure probes were added to all three cases (5
+  wall_cone stations, exact cell centroids computed per-mesh from
+  constant/polyMesh data at the mid-wedge-plane z=0, since the earlier
+  extraction attempt found the relevant field-directory timesteps had
+  already been deleted by purgeWrite=20 by the time each run reached its
+  endTime). All three cases were rerun fresh from t=0 with full probe
+  coverage (probeStagnation + probeForebody); none crashed.
+
+### Final matched-ramp, matched-time (t~2.62e-6s) three-way comparison
+
+| QoI | Coarse | Production | Fine |
+|---|---|---|---|
+| p_stag (Pa) | 32,714.3 | 33,005.1 | 33,087.1 |
+| T_stag (K) | 462.11 | 409.80 | 374.91 |
+
+p_stag: clean, monotonic, shrinking increments (291 Pa, then 82 Pa) -
+the signature of genuine grid convergence.
+T_stag: also monotonic but far more sensitive (~19% total spread vs
+~1.1% for p_stag) - consistent with near-wall temperature-gradient
+resolution against the isothermal 300K wall being much more
+h0-sensitive than the largely-inviscid shock-layer pressure.
+
+Forebody surface pressure at the 5 wall_cone stations: monotonic at the
+nose-adjacent and base-adjacent stations; NOT monotonic at the 3
+mid-cone stations. Forebody surface temperature: monotonic at all 5
+stations, same direction/magnitude as T_stag.
+
+### Richardson extrapolation (refinement ratio confirmed sqrt(2) between
+### all three levels)
+
+- p_stag: observed order p=3.65, extrapolated (h->0) value 33,119.3 Pa,
+  GCI(fine)=0.12% - genuinely well-converged, defensible verification
+  result.
+- T_stag: observed order p=1.17 (well below the schemes' nominal spatial
+  order), extrapolated value 305.0 K, GCI(fine)=23.3% - NOT trustworthy.
+  Diagnosed as a consequence of sampling a still-transient state
+  (~2.55e-6s post-ramp): classical Richardson/GCI theory assumes a
+  converged spatial error field, which does not strictly hold for a
+  transient snapshot. The near-wall thermal boundary layer has likely
+  not yet reached a self-similar profile at this sampled instant,
+  particularly on the coarser meshes.
+
+**Decision:** p_stag is reported as verified (GCI 0.12%). T_stag and the
+mid-cone forebody-pressure non-monotonicity are documented as a
+pre-asymptotic-temporal-state limitation of this verification exercise,
+not force-fit into a Richardson extrapolation the data doesn't support.
+Per the finalized Project 01 completion scope (see below), this is not
+investigated further with additional ramp-strategy or later-sampling-time
+experiments - the marginal research value does not justify further time
+against the project's actual research question (nose-radius effects,
+not yet addressed by any of this verification work).
+
+### Base/wake re-confirmation: M=4-start delays, does not eliminate, the
+### continuum-breakdown crash
+
+Since none of the three M=4-start runs crashed by their endTime=1e-5s
+(compared to production/coarse's original M=5-start crash at
+t~2.63-2.64e-6s), directly checked whether this indicated the base/wake
+limitation had been avoided rather than delayed - field inspection
+(same script/method as the original vacuum-condition discovery) at
+production's final M=4-start timestep (t=9.99952e-06s) found base-wall
+minimum p=0.368 Pa (~0.03% of freestream p_inf=1197 Pa) at x=0.416655
+(the base wall x-location) - the same near-vacuum regime as the original
+crash (p~0.035 Pa), roughly 10x less severe and not yet fatal, but on
+the identical trajectory. **Conclusion: the M=4-start ramp delays the
+base/wake continuum-breakdown further (roughly 4x more simulated time
+survived); it does not eliminate the underlying physical limitation.**
+This is a second, independent confirmation of the original base/wake
+finding via a completely different ramp strategy - it reinforces rather
+than overturns the decision (documented above, commit c8c70d5) to drop
+total drag from Project 01's scope.
+
+### Status / scope going forward
+
+Grid convergence study is complete for p_stag (verified, GCI 0.12%);
+T_stag and mid-cone forebody-p are documented as pre-asymptotic
+limitations rather than further investigated. This closes the
+verification stage. Per a finalized project-completion scope (Harsh's
+explicit decision, prompted by a pace/progress check-in), the remaining
+Project 01 work is scoped tightly: (1) validation against Fay-Riddell
+(stagnation heat flux) and Billig (shock stand-off) for the baseline
+geometry, one comparison each, no iterative refinement chasing; (2) a
+2-geometry nose-radius comparison (baseline R_n=0.05m + one contrast
+radius, TBD) using a Python driver script to reproduce the proven
+O-grid/M=4-ramp case-setup methodology rather than manual step-by-step
+setup; (3) physical interpretation and engineering conclusion; (4) final
+documentation and GitHub packaging.

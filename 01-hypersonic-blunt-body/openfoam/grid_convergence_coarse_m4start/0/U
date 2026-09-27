@@ -1,0 +1,78 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+  =========                 |
+  \\      /  F ield         | OpenFOAM
+   \\    /   O peration     |
+    \\  /    A nd           |
+     \\/     M anipulation  |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       volVectorField;
+    object      U;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+// Grid convergence COARSE mesh: standardized to M=4-start ramp, matching
+// production_m4start_confound_test and the fine mesh, so all three
+// densities share an identical ramp-start Mach for a valid cross-mesh
+// comparison. Replaces the original M=5-start ramp used in this case's
+// first run (see DEVELOPMENT_LOG.md for the ramp-start-Mach confound
+// finding that motivated this change). p and T are NOT ramped (Mach
+// depends only on U at fixed altitude).
+
+dimensions      [0 1 -1 0 0 0 0];
+
+internalField   uniform (1206.72 0 0);
+
+boundaryField
+{
+    farfield_upstream
+    {
+        type            uniformFixedValue;
+        uniformValue    table
+        (
+            (0        (1206.72 0 0))
+            (5e-08    (2111.72 0 0))
+        );
+    }
+    farfield_outer
+    {
+        type            uniformFixedValue;
+        uniformValue    table
+        (
+            (0        (1206.72 0 0))
+            (5e-08    (2111.72 0 0))
+        );
+    }
+    outlet
+    {
+        type            zeroGradient;
+    }
+    wall_nose
+    {
+        type            noSlip;
+    }
+    wall_cone
+    {
+        type            noSlip;
+    }
+    wall_fillet
+    {
+        type            noSlip;
+    }
+    wall_base
+    {
+        type            noSlip;
+    }
+    frontWedge
+    {
+        type            wedge;
+    }
+    backWedge
+    {
+        type            wedge;
+    }
+}
+
+// ************************************************************************* //
