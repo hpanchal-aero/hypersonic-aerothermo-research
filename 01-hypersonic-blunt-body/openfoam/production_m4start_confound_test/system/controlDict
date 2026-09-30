@@ -13,11 +13,20 @@ FoamFile
     object      controlDict;
 }
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
-// Production case: full M=7, full near-wall + fine far-field resolution,
-// validated Mach-ramp startup (M=5->7 over 5e-8s, see 0/U). endTime left
-// generous - this run is intended to actually reach temporal independence
-// of stagnation QoIs (q_stag, p_stag, forebody pressure), not to be
-// stopped early as a shakedown pass/fail check.
+// Production mesh, M=4->7 inlet ramp (see 0/U). LONG RESTART to t=1e-4 s.
+//
+// HISTORICAL NOTE (2026-09-29): this run was launched to test whether the
+// low p_stag seen at t~1e-5 s was an impulsive-start transient that would
+// relax toward the M=7 Pitot value. It did not: p_stag fell from ~43% to
+// ~31% of the M=7 Pitot value. Cause: the ramp changes only the INLET
+// boundary condition; the domain interior (0/U internalField) starts at the
+// ramp-start velocity (M=4), so the body was still seeing M=4 gas at
+// t=1e-4 s. This run therefore characterises an M=4 flow, NOT M=7.
+// See DEVELOPMENT_LOG.md, entry 2026-09-29, for the full diagnosis and the
+// field-based reinitialisation used to reach genuine M=7 conditions.
+//
+// Output is run-time based (every 2e-6 s), no purging; probes write every
+// timestep. Kept as a record of the confound test, not as an M=7 baseline.
 
 application     rhoCentralFoam;
 
@@ -25,14 +34,14 @@ startFrom       latestTime;
 startTime       0;
 
 stopAt          endTime;
-endTime         1e-5;
+endTime         1e-4;
 
 deltaT          1e-10;
 
-writeControl    timeStep;
-writeInterval   2;
+writeControl    adjustableRunTime;
+writeInterval   2e-6;
 
-purgeWrite      20;
+purgeWrite      0;
 
 writeFormat     ascii;
 writePrecision  6;
@@ -78,4 +87,4 @@ functions
         );
     }
 }
-//************************************************************************ //
+// ************************************************************************* //

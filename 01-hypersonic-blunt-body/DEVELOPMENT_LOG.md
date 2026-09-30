@@ -743,3 +743,171 @@ radius, TBD) using a Python driver script to reproduce the proven
 O-grid/M=4-ramp case-setup methodology rather than manual step-by-step
 setup; (3) physical interpretation and engineering conclusion; (4) final
 documentation and GitHub packaging.
+
+## 2026-09-29 — Major Correction: Grid-Convergence Study Was Run at M=4/M=5, Not M=7; M=7 Achieved via Field-Based Reinitialization
+
+### Summary
+
+A post-commit sanity check against classical theory revealed that every
+run in this project claiming to represent M=7 flow - including the
+entire grid-convergence study committed as 7c8d54a - actually contained
+M=4 or M=5 gas around the body, not M=7. The root cause, resolution
+attempts, and final outcome are documented below. This corrects, but
+does not retract the underlying methodology value of, the
+grid-convergence study: the O-grid mesh, the checkMesh verification,
+and the p_stag Richardson/GCI analysis remain valid AS A MESH-INDEPENDENCE
+STUDY, but the physical regime they were verified at was M=4/M=5, not
+the project's stated M=7 freestream condition. This must be corrected
+before any comparison against Fay-Riddell or Billig (both M=7
+correlations) is attempted.
+
+### How the error was found
+
+Immediately after committing the grid-convergence study, a long
+restart of the production M=4-start case (from its existing t~1e-5s
+state out to t=1e-4s, ~8h wall time) was run specifically to check
+whether p_stag was approaching the theoretical M=7 Rayleigh-Pitot
+stagnation pressure (63.55 x p_inf = 76,072 Pa) as simulated time
+increased. Instead, p_stag moved AWAY from theory: 43% of the Pitot
+value at t=2.6e-6s, falling to 31% by t=1e-4s, with a -5% to -8% drift
+over the final 20 microseconds - the opposite of convergence.
+
+An independent Taylor-Maccoll calculation of the sharp 15-degree cone's
+surface pressure at M=7 (shock angle 18.4 deg, surface p/p_inf=6.07)
+was compared against the measured forebody wall pressures (~2.8-3.3
+p_inf) - roughly half the theoretical value and still falling. Both the
+stagnation-point and forebody-surface deficits, independently, matched
+Mach 4 theory almost exactly instead (Pitot 21.07 p_inf vs. measured
+19.7-22.7 p_inf; cone surface 2.80 p_inf vs. measured 2.8-3.3 p_inf).
+
+### Root cause
+
+The Mach-ramp startup strategy (see Shakedown A/B and the production
+run entries above) only changes the velocity BOUNDARY CONDITION at the
+upstream inlet over 5e-8s. The `0/U` internalField - the initial
+condition for the entire interior of the domain - was left uniform at
+the ramp's STARTING velocity (1206.72 m/s = M4, or 1508.4 m/s = M5,
+depending on the case). The new M=7 gas entering at the inlet has to
+physically travel from x=-0.30 (the inlet plane) to the body at x=0
+before the body ever experiences M=7 conditions. At U~2112 m/s this
+transit takes at least 1.4e-4s; the actual front moved slower
+(~1350 m/s observed). Every run to date, including all three
+grid-convergence densities, was stopped (by a crash or an endTime) well
+before the M=7 front reached the body - the entire domain the body
+"saw" was still at the ramp's start-Mach conditions the whole time.
+
+This reframes the earlier "ramp-start-Mach confound" finding (this
+log, 2026-09-27 entry): it was not a confound between two representations
+of the same M=7 flow, it was a comparison between two different,
+genuinely distinct STEADY flow regimes (M=4 gas vs M=5 gas) that
+happened to look like a Mach-ramp artifact because both were mislabeled
+as "M=7". The grid-convergence study's p_stag Richardson/GCI result
+(GCI=0.12%) is a legitimate verification of mesh-independence AT
+WHATEVER CONDITION WAS ACTUALLY SIMULATED (M=4-ish gas, given the
+matched M=4-start ramp used for that comparison) - it is not invalid,
+but it must be relabeled, and it cannot be used as an M=7 validation
+baseline as previously assumed.
+
+### Resolution attempts (coarse mesh only, before replicating on
+### production/fine)
+
+Three approaches were considered: (B) surgically reinitialize the
+far-field interior to true M=7 conditions so the transit distance
+collapses to a few cm instead of 0.30m; (C) shrink the physical domain
+and remesh so transit time is inherently short; (E) change the
+project's locked-in freestream condition to M=4 (a research-scope
+decision, not attempted). B was chosen first as the cheapest to test.
+
+**B, attempt 1 (geometric protect-cylinder) - FAILED, new crash mode.**
+`setFields`/`topoSet` were used to overwrite p/T/U to M=7 values in all
+cells outside a protect-cylinder (x=-0.015 to 0.43, r=0.16) around the
+body. Two dictionary bugs were found and fixed in the process
+(`cellToCell` is not a valid `setFieldsDict` region source; the
+correct source is `cellSet`; and `defaultFieldValues` unconditionally
+overwrites the ENTIRE domain before `regions` is applied, so setting
+it equal to the intended region values masked a real region-application
+failure on the first attempt). Once genuinely fixed and verified
+per-cell (via a new script, verify_setfields.py), a trial run crashed
+in ~1.2e-5s of simulated time via the usual sigFpe/hePsiThermo
+mechanism. Diagnosis: the protect-cylinder boundary sits right at the
+base/wake edge (base at x=0.4166), so genuinely near-vacuum protected
+cells (p as low as 0.34 Pa) sat immediately adjacent to reinitialized
+freestream cells at 1197 Pa - a ~3500x artificial pressure
+discontinuity, a new self-inflicted numerical stiffness distinct from
+any previously-documented mechanism.
+
+**B, attempt 2 (field-based selection) - SUCCEEDED for ~9.4e-5s,
+new distinct instability found at the end.** Replaced the geometric
+cylinder with a `fieldToCell` selection on p (cells within 1192-1202 Pa
+of freestream, i.e. genuinely undisturbed pre-shock cells), changing
+ONLY U in those cells (p, T are already correct there by construction,
+so no discontinuity is possible - a `setFields`-cannot-preserve-cells
+limitation was also discovered and worked around by writing a
+dedicated read-modify-write Python script, reinit_U_only.py, instead of
+using setFields at all for the final approach). An initial pass of this
+selection picked up 9238 cells including 5749 near the body; direct
+inspection showed most were legitimate freestream pockets just outside
+the thin oblique shock layer along the cone flank, but a further
+x<=0.40 restriction was applied (Harsh's decision) to exclude the
+ambiguous base/wake-adjacent portion entirely, giving a final selection
+of 7835 cells.
+
+This run SURVIVED to t=1.0488e-4s (~9.4e-5s past the reinit, ~38 min
+wall time, ~8x longer than attempt 1) and produced genuine M=7 physics:
+p_stag reached 104% of the theoretical Pitot value within 10
+microseconds of the reinit and oscillated 89-104% of Pitot for the rest
+of the run; stagnation temperature matched the theoretical M=7 value
+(~2446K) to within 1% at the final timestep (2416K measured). This is
+strong, independent, positive confirmation the field-based reinit
+approach works.
+
+The run's crash showed a SECOND new instability, distinct from the
+base wall (which was also present, and even more extreme than before -
+p down to 4.7e-4 Pa - consistent with, not contradicting, the
+documented base/wake limitation): a cell just upstream of the nose tip
+(x=-0.0083, r=0.0103) showed a smooth, monotonic decline in p and T
+across all ~20 available snapshots (p: 222 -> 0.097 Pa; T: 41.3 ->
+0.018 K over ~9e-8s), with Ux/Uy also drifting steadily - the signature
+of a genuine, locally runaway numerical expansion, not noise or a
+last-instant artifact. A restart from the earliest surviving snapshot
+(where the decline was already underway) with a short target endTime
+reproduced the crash within 2e-9s of the original crash time -
+confirming this is a real, deterministic instability tied to the
+reinit interface near the nose, not a fluke.
+
+### Decision (Harsh's explicit call)
+
+Per an agreed test-then-decide protocol: the reproducibility test (J)
+was run once; since it reproduced the crash rather than surviving
+further, the decision moved to option K: accept the ~9.4e-5s window as
+sufficient positive evidence that the field-based reinit produces
+genuine M=7 physics, do not chase the nose-region instability to a
+stable endpoint, and use the settled portion of this run (t~1.03e-4s to
+the crash at 1.0488e-4s, where p_stag/T_stag/forebody-p all show flat,
+non-drifting trends with no sign of the nose anomaly reaching them) as
+the coarse-mesh baseline for validation. The final values: p_stag
+67,964 Pa (89.3% of the theoretical Pitot value), T_stag 402.2K,
+forebody stations 8,915 / 5,229 / 7,826 / 7,788 / 7,788 Pa. The
+remaining ~11% shortfall in p_stag against theory is documented as an
+open, unresolved uncertainty (possibly further settling needed, a
+residual effect of only partially reinitializing the domain, or a
+mesh-density effect) rather than investigated further, consistent with
+the project's finalized completion scope.
+
+### Consequences / what needs correcting going forward
+
+- The grid-convergence study (7c8d54a) verified mesh-independence at an
+  M=4/M=5-ish condition, not M=7 as originally labeled. Its p_stag
+  Richardson/GCI result stands as a verification-methodology
+  demonstration but cannot be used as-is as the M=7 validation baseline.
+- The same field-based reinitialization approach (fieldToCell on p,
+  U-only reinit via reinit_U_only.py, x<=0.40 wake exclusion) needs to
+  be replicated on the production and fine meshes before a genuine,
+  matched, mesh-independent M=7 comparison can be attempted.
+- PROJECT_DEFINITION.md's Status section needs updating to reflect that
+  M=7 has now been achieved (with a documented startup-method
+  limitation), correcting the implicit assumption in prior entries that
+  the Mach-ramp alone was sufficient.
+- Validation against Fay-Riddell/Billig can now proceed using the
+  settled-window values above as the coarse-mesh datapoint, once
+  production/fine mesh equivalents exist.

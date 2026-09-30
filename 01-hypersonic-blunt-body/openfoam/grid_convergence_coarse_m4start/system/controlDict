@@ -21,11 +21,11 @@ FoamFile
 
 application     rhoCentralFoam;
 
-startFrom       latestTime;
-startTime       0;
+startFrom       startTime;
+startTime       0.0001047843;
 
 stopAt          endTime;
-endTime         1e-5;
+endTime         0.000106;
 
 deltaT          1e-10;
 
