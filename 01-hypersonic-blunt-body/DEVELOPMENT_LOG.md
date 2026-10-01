@@ -1060,3 +1060,66 @@ failed early, with the crash location documented but not its cause.
   crash-location restart (startTime 1e-05, endTime 1.25e-5, write every
   50 steps).
 - New scripts: axis_shock_history.py, wall_flux_true.py, cell_history.py.
+
+## 2026-10-01 — Validation Draft Written; Corrections to the 2026-09-30 Entry
+
+### Corrections to the 2026-09-30 entry
+
+- The "~10 % uncertainty in q" attached to the Newtonian velocity
+  gradient in the Fay-Riddell reference had no source. It is withdrawn.
+  Olivier (Shock Waves 5, 205-216, 1995; abstract read, full text not
+  accessed) states that deviations between computed or measured
+  stagnation-point heat flux and Fay-Riddell are partly caused by the
+  Newtonian velocity gradient. No magnitude or sign is available from the
+  abstract, so the reference is uncertain by an unknown amount.
+- "Spread ~4 %, no systematic drift" for the production tip-face heat
+  flux was based on four snapshots that happened to lie close together.
+  Over all 22 snapshots (4e-5 to 8.2e-5 s, 2e-6 s spacing) q2 has mean
+  617 kW/m2, standard deviation 64 kW/m2 (10.4 %), minimum 492, maximum
+  728 (full range 38 % of the mean); first-half and second-half means are
+  621 and 613 kW/m2. q2 follows the wall-adjacent temperature (346-366 K)
+  with correlation 0.999.
+- The statements that the heat flux is "repeatable in time on
+  production" and that the coarse-to-production drop (807 to ~620 kW/m2,
+  ~23 %) shows mesh dependence are not supported as written. Production
+  alone fluctuates by 10 % (1 sigma) and coarse is a single snapshot, so
+  the size of any mesh effect cannot be separated from the oscillation.
+  The separate evidence for a resolution effect (first-cell flux rising
+  573 to 748 kW/m2 over 0.1 rad of nose on a single mesh, with the wall
+  cell temperature unchanged) is unaffected.
+
+### New observations
+
+- Coarse stand-off (t = 1.0478e-4 to 1.0488e-4 s): 7.63-7.64 mm at the
+  50 % crossing; 8.24 mm at 25 % and 7.00 mm at 75 % of the jump; axis
+  cell spacing 0.97-0.77 mm near the shock. Billig: 7.64 mm; M=4 value:
+  8.75 mm. The agreement is within the shock-capturing uncertainty
+  (about +-0.8 mm), not a precise confirmation.
+- The coarse axis pressure is flat at 57.0-57.4 p_inf from 1.2 mm to the
+  wall. The M=7 normal-shock value is 57.0 p_inf and Pitot is 63.55
+  p_inf; the ratio 57.0/63.55 = 0.897 is close to the measured p_stag /
+  Pitot = 0.893. The coarse profile therefore lacks the subsonic
+  compression behind the shock. This is an observation about the open
+  ~11 % shortfall; its cause was not investigated.
+- The upstream pressure wave is also present on the coarse mesh (peak
+  4.57 kPa at x = -0.121 m, minimum 456 Pa at -0.061 m at t = 1.048e-4 s),
+  at positions consistent with the 1500-1800 m/s speed measured on
+  production. It was still about 0.05 m from the shock at the coarse
+  crash.
+- In the Fay-Riddell scaling q goes as p_e^0.4, so an 11 % lower
+  stagnation pressure lowers the expected q by about 4 %, which does not
+  explain the heat-flux gap.
+
+### Citations
+
+Fay-Riddell (J. Aeronautical Sciences 25(2), 73-85, 1958) and Billig
+(J. Spacecraft and Rockets 4, 822-823, 1967) details were confirmed in
+citing papers; neither paper was read. Billig's formula
+(Delta/R_n = 0.143 exp(3.24/M^2)) and Sutton-Graves were not confirmed.
+
+### Validation draft
+
+VALIDATION.md added (draft, for author review). Method approved by Harsh:
+comparison with analytical references only, no pass/fail tolerance set
+in advance, discrepancies reported with their caveats. No experimental
+dataset has been identified or used.
