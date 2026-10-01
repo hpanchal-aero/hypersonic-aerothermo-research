@@ -1,0 +1,79 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+  =========                 |
+  \\      /  F ield         | OpenFOAM
+   \\    /   O peration     |
+    \\  /    A nd           |
+     \\/     M anipulation  |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       volVectorField;
+    object      U;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+// CONFOUND TEST: production mesh, UNCHANGED, with M=4-start ramp instead of
+// the original M=5-start ramp. Purpose: isolate whether ramp-start Mach
+// (not grid density) explains the ~33,000 Pa vs ~49,000 Pa p_stag
+// discrepancy observed between the fine mesh (M=4 start) and
+// production/coarse (M=5 start) at matched absolute time t~2.6e-6s.
+// Everything else in this case is byte-identical to the original,
+// validated production case. p and T are NOT ramped (Mach depends only
+// on U at fixed altitude).
+
+dimensions      [0 1 -1 0 0 0 0];
+
+internalField   uniform (1206.72 0 0);
+
+boundaryField
+{
+    farfield_upstream
+    {
+        type            uniformFixedValue;
+        uniformValue    table
+        (
+            (0        (1206.72 0 0))
+            (5e-08    (2111.72 0 0))
+        );
+    }
+    farfield_outer
+    {
+        type            uniformFixedValue;
+        uniformValue    table
+        (
+            (0        (1206.72 0 0))
+            (5e-08    (2111.72 0 0))
+        );
+    }
+    outlet
+    {
+        type            zeroGradient;
+    }
+    wall_nose
+    {
+        type            noSlip;
+    }
+    wall_cone
+    {
+        type            noSlip;
+    }
+    wall_fillet
+    {
+        type            noSlip;
+    }
+    wall_base
+    {
+        type            noSlip;
+    }
+    frontWedge
+    {
+        type            wedge;
+    }
+    backWedge
+    {
+        type            wedge;
+    }
+}
+
+// ************************************************************************* //

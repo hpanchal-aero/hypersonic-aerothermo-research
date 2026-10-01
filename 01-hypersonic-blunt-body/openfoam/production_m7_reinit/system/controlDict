@@ -1,0 +1,87 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+  =========                 |
+  \\      /  F ield         | OpenFOAM
+   \\    /   O peration     |
+    \\  /    A nd           |
+     \\/     M anipulation  |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    object      controlDict;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+// Production mesh, M=7 field-based reinitialization.
+//
+// Start state: t=9.99952e-06 s from the M=4-start run, with U overwritten
+// to (2111.72 0 0) in the 7836 undisturbed-freestream cells selected by
+// topoSetDict (fieldToCell on p, 1192-1202 Pa, intersected with x<=0.40).
+// p and T were not modified. See DEVELOPMENT_LOG.md, 2026-09-29 entry.
+//
+// First pass ran to 4e-5 s. This EXTENSION restarts from latestTime (the
+// 4e-5 s snapshot) out to 1.1e-4 s, covering the coarse-mesh crash time
+// (1.0488e-4 s) so the two meshes can be compared over the same window.
+// Output every 2e-6 s, no purging. Probes write every timestep.
+
+application     rhoCentralFoam;
+
+startFrom       latestTime;
+startTime       9.99952e-06;
+
+stopAt          endTime;
+endTime         1.1e-4;
+
+deltaT          1e-10;
+
+writeControl    adjustableRunTime;
+writeInterval   2e-6;
+
+purgeWrite      0;
+
+writeFormat     ascii;
+writePrecision  6;
+writeCompression off;
+
+timeFormat      general;
+timePrecision   6;
+
+runTimeModifiable true;
+
+adjustTimeStep  yes;
+maxCo           0.5;
+maxDeltaT       1e-6;
+
+functions
+{
+    probeStagnation
+    {
+        type            probes;
+        libs            ("libsampling.so");
+        writeControl    timeStep;
+        writeInterval   1;
+        fields          (T p U);
+        probeLocations
+        (
+            (0 0 0)
+        );
+    }
+    probeForebody
+    {
+        type            probes;
+        libs            ("libsampling.so");
+        writeControl    timeStep;
+        writeInterval   1;
+        fields          (T p);
+        probeLocations
+        (
+            (0.03856145 0.04869434 0.00000000)
+            (0.13125550 0.07352789 0.00000000)
+            (0.22394980 0.09836142 0.00000000)
+            (0.31664380 0.12319510 0.00000000)
+            (0.41184330 0.14869960 0.00000000)
+        );
+    }
+}
+// ************************************************************************* //

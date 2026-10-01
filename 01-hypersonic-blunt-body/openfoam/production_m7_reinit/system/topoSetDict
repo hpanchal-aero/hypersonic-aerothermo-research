@@ -1,0 +1,46 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+  =========                 |
+  \\      /  F ield         | OpenFOAM
+   \\    /   O peration     |
+    \\  /    A nd           |
+     \\/     M anipulation  |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    object      topoSetDict;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+// Field-based selection (undisturbed pre-shock cells, p within 1192-1202
+// Pa of freestream) INTERSECTED with x <= 0.40, excluding the base/wake
+// region (base at x=0.4166) entirely regardless of its pressure reading,
+// since that region's behavior near the freestream band is ambiguous
+// (possible expansion-recovery cells, not confirmed genuinely
+// undisturbed). Upstream and alongside-the-cone cells at freestream
+// pressure are kept, since those are confirmed to sit just outside the
+// thin oblique shock layer.
+
+actions
+(
+    {
+        name    undisturbedFreestream;
+        type    cellSet;
+        action  new;
+        source  fieldToCell;
+        field   p;
+        min     1192;
+        max     1202;
+    }
+
+    {
+        name    undisturbedFreestream;
+        type    cellSet;
+        action  subset;
+        source  boxToCell;
+        box     (-1 -1 -1) (0.40 1 1);
+    }
+);
+
+// ************************************************************************* //

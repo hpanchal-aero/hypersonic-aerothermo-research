@@ -911,3 +911,152 @@ the project's finalized completion scope.
 - Validation against Fay-Riddell/Billig can now proceed using the
   settled-window values above as the coarse-mesh datapoint, once
   production/fine mesh equivalents exist.
+
+## 2026-09-30 — M=7 Reinitialization Replicated on Production and Fine; Stagnation Heat Flux Extracted; Fine Mesh Crashes Early; Mesh Study Limited to Two Meshes
+
+### Production mesh (openfoam/production_m7_reinit)
+
+Built from production_m4start_confound_test, snapshot t=9.99952e-06 s
+(checked beforehand: no .bak files, original-run timestamps). Same
+topoSetDict as coarse (fieldToCell on p, 1192-1202 Pa, intersected with
+x<=0.40): 9,236 cells, then 7,836 after the box subset, max selected x =
+0.399972. U set to (2111.72 0 0) in those cells by reinit_U_only.py.
+Before/after verification with verify_setfields.py: in-set Ux exactly
+2111.72, in-set p and T unchanged, out-of-set statistics identical to
+the baseline.
+
+The first run (to 4e-5 s, 791 s wall) completed. The extension to 1.1e-4
+s ended with a sigFpe in hePsiThermo::calculate() at t=8.21666e-05 s
+(7.2e-5 s past the reinit). The crash location was NOT inspected
+(Harsh's decision: use the pre-crash window, do not locate the crash).
+
+OBSERVATIONS, window 4e-5 to 8.2e-5 s:
+- p_stag window means (1e-5 s windows from 4e-5): 96.5, 101.2, 93.9,
+  102.3 % of the M=7 Pitot value (76,072 Pa). Swings of +-4-5 % inside
+  windows, 66.8-81.1 kPa at the extremes. No plateau.
+- Shock stand-off (half-jump crossing on the axis, +-~0.7 mm cell
+  spacing): 6.11, 6.38, 6.72, 6.90, 7.41, 7.41 mm at 4, 5, 6, 7, 8, 8.2
+  (x1e-5 s). Billig correlation: 7.64 mm. Still growing.
+- Post-shock axis pressure p/p_inf 56.9 vs normal-shock value 57.0; axis
+  maximum 63.65 p_inf vs Rayleigh-Pitot 63.55.
+- Forebody stations 3-5 decline slowly (8312->7779, 8424->7983,
+  8450->7982 Pa). Station 2 (x=0.131 m) falls from 8141 to 4978 Pa, close
+  to the coarse value of 5229 Pa. Cause not investigated. Sharp-cone
+  Taylor-Maccoll reference: 7,267 Pa.
+- An upstream pressure wave (compression to ~3.7-5.3 kPa, expansion to
+  ~0.52-0.62 kPa) sits at x ~ -0.28 to -0.10 m and moves at ~1500-1800
+  m/s. At the crash it was still ~0.1 m from the shock, so it did not
+  cause that crash.
+
+INFERENCE: the window brackets the solution but is not converged. The
+aft-cone pressures have probably not reached M=7 steady state (one gas
+pass along the body is ~2e-4 s; only ~7e-5 s was run past the reinit).
+The stagnation-region quantities equilibrate faster and are more
+trustworthy. Production's accepted values are window means with
+min/max ranges, with the stand-off labelled as still drifting.
+
+Corrections to earlier statements made during this work: the wall-side
+pressure dip is intermittent, not persistent; the wave speed is
+1500-1800 m/s, not 2100 m/s; the probe at (0,0,0) sits in the
+wall-adjacent cell (T ~ 358 K at the 300 K wall), so comparing it with
+the stagnation temperature (~2446 K) was invalid. The 2,416 K in the
+coarse notes was a whole-domain maximum in the shock layer; the 402.2 K
+is the wall-adjacent cell.
+
+### Stagnation heat flux (extraction only)
+
+The OpenFOAM 11 wallHeatFlux function object, run through
+foamPostProcess -solver shockFluid, wrote uniform 0 on every wall patch
+(laminar unityLewisFourier model, no error). Cause not found; the field
+was not used.
+
+Independent extraction: scripts/postprocessing/wall_flux_true.py reads
+cell centres from writeCellCentres and the face geometry from polyMesh
+and uses the true wall-normal distance. A first version
+(wall_flux_tip.py) selected the wrong cell, produced meaningless
+values, and was deleted.
+
+OBSERVATIONS (tip face, second-order fit through wall and two cells,
+modified-Eucken conductivity):
+- Production, d1 = 2.7055e-6 m: 628, 604, 621, 620 kW/m2 at 4e-5, 6e-5,
+  8e-5, 8.2e-5 s (spread ~4 %, no systematic drift).
+- Coarse, d1 = 3.8268e-6 m, snapshot t=1.0488e-4 s: 807 kW/m2. One-cell
+  estimates: 717 (coarse), 573 (production).
+- Scratch Fay-Riddell reference (perfect gas, Le=1, Pr=0.71, Newtonian
+  velocity gradient): ~916 kW/m2. Sutton-Graves: ~995 kW/m2.
+- Along the first 0.1 rad of the nose the first-cell flux rises 573 to
+  748 kW/m2 on production while the wall-cell T stays ~358-361 K and d
+  shrinks 2.71 to 2.16 um. A real sphere would vary by ~1 %.
+
+INFERENCE: the heat flux is repeatable in time on production but is
+mesh-dependent and not converged; refining from coarse to production
+lowered it by ~23 %, away from the reference. The nose-flank trend
+points to near-wall resolution as a main contributor. This is NOT a
+validation of Fay-Riddell. Caveats: the Eucken conductivity form is
+from recollection and was not checked against the v11 source (a
+constant-Pr=0.71 variant differs by ~3 %); the Fay-Riddell reference
+uses a Newtonian velocity gradient (~10 % uncertainty in q); the
+forebody probe coordinates came from a vertex-average that counts only
+owner faces, so the probes may not sit exactly at cell centres.
+
+### Fine mesh (openfoam/fine_m7_reinit)
+
+Built from grid_convergence_fine, snapshot t=9.99929e-06 s (clean).
+Selection: 9,223 cells, then 7,827 after x<=0.40, max x 0.399995.
+Reinit and before/after verification as on production.
+
+The run crashed (sigFpe in hePsiThermo::calculate()) at t=1.19109e-05 s,
+only 1.9e-6 s past the reinit; coarse survived 9.4e-5 s and production
+7.2e-5 s. A restart from the 1e-05 snapshot with a write every 50 steps
+reproduced the crash at 1.19233e-05 s (33 snapshots; not bit-identical
+because snapshots carry 6 digits).
+
+OBSERVATIONS: the failing cell is 16256 at (x, r) = (0.00377, 0.0277) m,
+about 3.9 mm off the nose surface at ~31 deg of arc, INSIDE the
+reinitialized set. From t~1.02e-5 s its p and T fall steadily (p 1320 to
+24 Pa, T 246 to 3.4 K by 1.19094e-5 s) while Ux rises 2112 to 2296 and
+Uy goes 0 to -519 m/s. Three in-set neighbours stay at freestream. Its
+non-set neighbours include cell 16264 (1.4 mm away) holding p=1300.6 Pa,
+T=242 K and Ux=1197 m/s, i.e. M=4 freestream-like gas excluded by the
++-5 Pa window; others hold shocked gas.
+A census of the 1e-05 state: 314 cells outside the set with x<=0.40 and
+p<3000 Pa; 263 of them have Ux in 1100-1300 m/s (36 at p 1202-1250 Pa,
+56 at 1250-1500, 161 at 1500-2000, 10 at 2000-3000), spread over x -0.27
+to 0.40 m and r up to 0.74 m. 51 others are unexplained. Coarse and
+production were not censused. The Uz residual remark made during
+diagnosis was withdrawn (Uz field is ~1e-12 noise).
+
+INFERENCE (untested): the p window leaves a population of unreinitialized
+M=4-velocity cells around and beyond the shock, and the fine mesh, which
+also needed an M=4 cold start, may be less tolerant of the resulting
+velocity steps. The data is consistent with this but does not prove it.
+It may also relate to the upstream wave seen on production.
+
+### Decision (Harsh's call: option B)
+
+Keep the validated reinit method unchanged and drop the fine mesh. The
+fast fine-only test with an extended selection was NOT run and the
+selection rule was NOT changed. The M=7 mesh study therefore has two
+meshes (coarse, production). Fine is recorded as an attempted run that
+failed early, with the crash location documented but not its cause.
+
+### Consequences
+
+- No convergence order or GCI can be computed for any M=7 quantity. The
+  q_stag change from coarse to production (807 to 621 kW/m2) must be
+  reported as a resolution sensitivity of unknown size.
+- The p_stag GCI of 0.12 % remains a mesh-independence demonstration at
+  M=4/M=5-like conditions only (see the 2026-09-29 entry).
+- Production is the working mesh for the nose-radius comparison.
+- The README must state the two-mesh limitation and the open items:
+  nose-region instability (coarse), unlocated production crash, ~11 %
+  coarse p_stag shortfall, unexplained station-2 pressure dip,
+  q_stag not converged, leftover M=4 cells, the wallHeatFlux zero output.
+- Reproducibility: the reinitialized start states live in gitignored
+  timestep directories. They are rebuilt from the M=4-start snapshots
+  (not in git) with topoSet and reinit_U_only.py. The committed
+  controlDicts are in their last-used states: production is the
+  extension run (latestTime, endTime 1.1e-4); fine is the
+  crash-location restart (startTime 1e-05, endTime 1.25e-5, write every
+  50 steps).
+- New scripts: axis_shock_history.py, wall_flux_true.py, cell_history.py.

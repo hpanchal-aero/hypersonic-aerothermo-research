@@ -1,0 +1,85 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+  =========                 |
+  \\      /  F ield         | OpenFOAM
+   \\    /   O peration     |
+    \\  /    A nd           |
+     \\/     M anipulation  |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    object      controlDict;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+// Fine mesh, M=7 field-based reinitialization. CRASH-LOCATION RESTART.
+//
+// The first run (continuous from 9.99929e-06 s) hit a sigFpe in
+// hePsiThermo::calculate() at t=1.19109e-05 s, ~1.9e-6 s after the reinit,
+// with only the 1e-05 snapshot written. This restart begins from that
+// snapshot (7e-10 s after the reinit) and writes every 50 steps so the
+// state just before any crash is on disk. endTime is past the expected
+// crash time on purpose. See DEVELOPMENT_LOG.md.
+
+application     rhoCentralFoam;
+
+startFrom       startTime;
+startTime       1e-05;
+
+stopAt          endTime;
+endTime         1.25e-5;
+
+deltaT          1e-10;
+
+writeControl    timeStep;
+writeInterval   50;
+
+purgeWrite      0;
+
+writeFormat     ascii;
+writePrecision  6;
+writeCompression off;
+
+timeFormat      general;
+timePrecision   6;
+
+runTimeModifiable true;
+
+adjustTimeStep  yes;
+maxCo           0.5;
+maxDeltaT       1e-6;
+
+functions
+{
+    probeStagnation
+    {
+        type            probes;
+        libs            ("libsampling.so");
+        writeControl    timeStep;
+        writeInterval   1;
+        fields          (T p U);
+        probeLocations
+        (
+            (0 0 0)
+        );
+    }
+
+    probeForebody
+    {
+        type            probes;
+        libs            ("libsampling.so");
+        writeControl    timeStep;
+        writeInterval   1;
+        fields          (T p);
+        probeLocations
+        (
+            (0.03856168 0.04869354 0.00000000)
+            (0.13125550 0.07352709 0.00000000)
+            (0.22394980 0.09836062 0.00000000)
+            (0.31664410 0.12319440 0.00000000)
+            (0.41184350 0.14869860 0.00000000)
+        );
+    }
+}
+// ************************************************************************* //
