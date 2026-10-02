@@ -1123,3 +1123,130 @@ VALIDATION.md added (draft, for author review). Method approved by Harsh:
 comparison with analytical references only, no pass/fail tolerance set
 in advance, discrepancies reported with their caveats. No experimental
 dataset has been identified or used.
+
+## 2026-10-02 — Sweep Driver Mesh Stage; Nose-Collar Defect Found in the Baseline Mesh; Arc-Collar Mesh (v2) Adopted
+
+### Scope decision (Harsh)
+
+The two-geometry nose-radius comparison is replaced by a five-radius
+sweep: R_n = 0.025, 0.0354, 0.05, 0.0707, 0.10 m. Terms taken from
+Claude's explicit proposals, accepted with "yes lets proceed": domain
+scaled with R_n (inlet at -6 R_n, outer boundary at 15 R_n); wall-normal
+h0 fixed at the production value (5.607 um); tangential divisions
+unchanged (61 / 151 / 15 / 76); a radius that crashes early or does not
+settle is a documented missing point after at most one rebuild attempt.
+
+### Mesh pipeline recovered and verified
+
+The mesh is one hand-written .geo (mesh/production/production.geo);
+R_n appears once, as the line "R_n = 0.05;". No mesh commands were
+recorded anywhere, so they were recovered by test:
+- /usr/bin/gmsh -3 production.geo -format msh2 -o X.msh reproduces
+  production.msh byte for byte (MSH 2.2, 40,310 nodes, 70,498 elements).
+- gmshToFoam X.msh, then scripts/mesh/retype_wedge_patches.py, gives
+  points, faces, owner, neighbour and boundary identical to
+  openfoam/production, and an identical checkMesh report (22,266 cells,
+  max non-orthogonality 88.85 deg, 283 faces above 70 deg, max skewness
+  0.778, max aspect ratio 322.5; the only failed check is the known
+  wedge-planarity item).
+- gmshToFoam SEGFAULTED (exit 139) in a scratch case whose controlDict
+  was a copy of the M=5 production controlDict (functions block loading
+  libsampling.so). A minimal placeholder controlDict works. Which part
+  of the copied dictionary triggers it was not isolated.
+- checkMesh returns exit code 0 even when it reports "Failed 1 mesh
+  checks"; the driver reads the report, not the exit code.
+
+scripts/mesh/make_mesh.py (stage 1 of the sweep driver) builds one
+radius: it derives the .geo from production.geo by one exact
+substitution of the R_n line, appends an outFarfield[] bounding-box
+diagnostic, runs gmsh, checks that outFarfield[6], [7], [8] are the
+outlet, outer and upstream surfaces at the positions predicted from
+R_n, runs gmshToFoam, the wedge retyping and checkMesh, and reports the
+statistics. At R_n = 0.05 it reproduced the production .msh and
+polyMesh byte for byte.
+
+### Finding: the nose collar of the baseline mesh is not uniform
+
+Built with the driver, R_n = 0.025 and 0.0354 passed checkMesh, but
+0.0707 and 0.10 had 49-50 negative-volume cells, 128-144 open cells, a
+hole in the boundary description and 252-276 wrongly oriented face
+pyramids (7 failed checks).
+
+Cause, from the .geo: the outer edge of the nose collar (N3) and of the
+buffer ring (NbufOuter) are straight Line segments between the offset
+end points, while the inner edge is a circular arc and its true offset
+is another arc. The chord lies inside the offset arc. Computed
+clearance of the chord from the sphere at mid-arc: 6.80, 4.65, 1.63 mm
+at R_n = 0.025, 0.0354, 0.05; -2.65 and -8.70 mm (inside the body) at
+0.0707 and 0.10. The chord first touches the sphere at R_n = 0.0579 m.
+
+OBSERVATIONS (mesh-only check, nose_d_profile.py, validated against
+the production snapshot): first-cell distance d along the 60 wall_nose
+faces of the baseline mesh is 2.706 um at the tip, falls to 0.293 um at
+40.6 deg of arc (predicted 0.29 um from the clearance ratio), and
+returns to 2.742 um at the tangent point (74.4 deg). Neighbouring faces
+in the thin region alternate by about 20 %.
+
+INFERENCE: in the baseline mesh the nominal 15.08 mm collar is about
+1.6 mm thick at mid-nose, with wall-normal lines tilted away from the
+surface normal. This is consistent with the baseline's 88.85 deg
+non-orthogonality and with the first-cell heat flux rising 573 to 748
+kW/m2 over the first 0.1 rad on production (d falls 20 % over that arc
+while T1 rises 4 %; q1 goes as (T1 - 300)/d). It affects the nose
+heat-flux and pressure distributions and flank shock resolution. The
+tip face and the stagnation line are least affected; the size of the
+effect on them was not measured. The fine-mesh M=7 crash cell (about
+31 deg of arc, 3.9 mm off the wall) lies near the thinnest part of the
+collar; whether the two are related was not tested.
+
+This corrects a sentence in the 2026-10-01 entry: the first-cell flux
+trend along the nose is not separate evidence of a generic resolution
+effect; it has this specific mesh-geometry cause.
+
+### Arc-collar test (Harsh approved test A; nothing adopted by the test)
+
+make_mesh.py --nose-arcs replaces N3 and NbufOuter by Circle arcs about
+p_nose_center (both end points are at the correct distance from the
+centre). Success criteria were fixed beforehand: clean checkMesh and
+patch-index check at all five radii; min d / tip d >= 0.7; non-
+orthogonality and the number of faces above 70 deg below the chord
+baseline at R_n = 0.05. Built in /tmp; results (arc):
+- cells 21,825 / 22,138 / 22,304 / 22,507 / 22,904 for R_n = 0.025 /
+  0.0354 / 0.05 / 0.0707 / 0.10 (hexahedra 17,523 in all);
+- min d / tip d = 0.976 / 0.964 / 0.979 / 0.983 / 0.979; tip d is now
+  2.8035 um = h0/2 (chord mesh: 2.7055 um);
+- max skewness 0.758 / 0.745 / 0.735 / 0.720 / 0.713 (chord: 0.852 /
+  0.809 / 0.778 / broken / broken);
+- max non-orthogonality 86.18 / 86.38 / 85.37 / 84.87 / 79.19 deg and
+  faces above 70 deg 142 / 192 / 203 / 130 / 179 (baseline chord:
+  88.85 deg, 283 faces);
+- positive minimum volumes everywhere; the only failed check is the
+  wedge-planarity item. All criteria met.
+The remaining non-orthogonality is NOT from the nose collar: at 0.025
+and 0.0354 the maximum angle, the face count and the maximum aspect
+ratio (322.5, 387.0) are identical to the chord meshes. Where those
+faces lie was not inspected.
+
+### Decision (Harsh)
+
+Adopt the arc collar as the mesh for the sweep (mesh v2) and re-run the
+baseline R_n = 0.05 m on it (M=4 start, reinit, M=7) so the sweep is
+like for like. All existing coarse and production M=7 results remain on
+record as mesh v1 (chord collar) with this limitation (see
+VALIDATION.md section 7). Not part of this decision: M=7 coarse and
+fine versions of v2 (the driver would need h0, division count and
+buffer ratio as parameters).
+
+### Predictions that were wrong
+
+- checkMesh was expected to exit with code 1; it exits 0.
+- Cell counts for the sweep were expected to span 20,000-30,000; they
+  span 21,823-22,904 (far-field sizing is absolute and the structured
+  region dominates).
+
+### Open items
+
+- Location of the remaining faces above 70 deg (nonOrthoFaces sets).
+- Obsolete chord-built directories mesh/rn0250..rn1000 and
+  openfoam/rn0250..rn1000 in the repository (untracked).
+- Nothing yet run on v2.

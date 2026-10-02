@@ -177,6 +177,18 @@ sphere varies by about 1 % over that arc.
 
 ## 7. Caveats and open items
 
+- Nose mesh feature (found 2026-10-02): in the mesh behind every M=7
+  result here (chord collar), the nominal 15.08 mm wall-normal collar is
+  only about 1.6 mm thick near 40 deg of nose arc. On production the
+  first-cell distance falls from 2.71 um at the tip to 0.293 um there and
+  returns to 2.74 um at the tangent point. Off-axis nose quantities
+  (heat-flux and pressure distributions, flank shock resolution) depend
+  on the mesh in a way that varies along the nose; the first-cell flux
+  rise from 573 to 748 kW/m2 over the first 0.1 rad is explained by it.
+  The tip face (d = 2.71 um, designed h0/2 = 2.80 um) and the
+  stagnation line are the least affected, but the size of the effect on
+  them was not measured. A circular-arc collar (mesh v2) exists and the
+  baseline is to be re-run on it; see DEVELOPMENT_LOG.md, 2026-10-02.
 - Two meshes only at M=7. No convergence order or GCI can be computed
   for any M=7 quantity. The earlier p_stag GCI (0.12 %) applies to
   M=4/M=5-like conditions (see the 2026-09-29 log entry).
